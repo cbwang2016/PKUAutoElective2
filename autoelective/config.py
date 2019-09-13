@@ -101,6 +101,10 @@ class AutoElectiveConfig(BaseConfig, metaclass=Singleton):
         return self.getint("client", "elective_client_pool_size")
 
     @property
+    def captchaRefreshInterval(self):
+        return self.getfloat("client", "captcha_refresh_interval")
+
+    @property
     def loginLoopInterval(self):
         return self.getfloat("client", "login_loop_interval")
 

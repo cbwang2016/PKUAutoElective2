@@ -43,6 +43,7 @@ def main(signals, userInfo, goals=None, ignored=None, status=None):
     iaaaTimeout = config.iaaaClientTimeout
     electiveTimeout = config.electiveClientTimeout
     loginLoopInterval = config.loginLoopInterval
+    captchaRefreshInterval = config.captchaRefreshInterval
     electivePoolSize = config.electiveClientPoolSize
 
     config.check_identify(identity)
@@ -156,9 +157,13 @@ def main(signals, userInfo, goals=None, ignored=None, status=None):
     def _task_validate_captcha(elective):
         """ 填一次验证码 """
         while True:
-            cout.info("Fetch a captcha")
+            cout.info("Fetch a captcha (client: %s)" % elective.id)
             r = elective.get_DrawServlet()
-            captcha = recognizer.recognize(r.content)
+            try:
+                captcha = recognizer.recognize(r.content) # 可能识别分割错误
+            except Exception as e:
+                ferr.error(e)
+                raise OperationFailedError(msg="Unable to recognize captcha")
             code = captcha.code
             cout.info("Recognition result: %s" % code)
 
@@ -178,6 +183,7 @@ def main(signals, userInfo, goals=None, ignored=None, status=None):
                 cout.info("Validation failed, try again")
             else:
                 cout.warning("Unknown validation result: %s" % res)
+        elective.setCaptchaTime(captchaRefreshInterval)
 
 
     def _task_increase_error_count(status, error):
@@ -268,6 +274,7 @@ def main(signals, userInfo, goals=None, ignored=None, status=None):
                     _ = elective.sso_login_dual_degree(sida, sttp, referer)
 
                 cout.info("Login success (client: %s)" % elective.id)
+                _task_validate_captcha(elective)
 
                 electivePool.put_nowait(elective)
                 elective = None
@@ -410,6 +417,13 @@ def main(signals, userInfo, goals=None, ignored=None, status=None):
                 if not elective.hasLogined:
                     raise _ElectiveNeedsLogin  # quit this loop
 
+                if elective.captchaNeedsRefresh:
+                    try:
+                        _task_validate_captcha(elective)
+                    except Exception as e:
+                        cout.warning("Captcha validation failed... relogin!")
+                        raise SessionExpiredError()
+
                 # MARK: check supply/cancel page
 
                 if page == 1:
@@ -471,7 +485,7 @@ def main(signals, userInfo, goals=None, ignored=None, status=None):
                     course = queue.popleft()
                     cout.info("Try to elect %s" % course)
 
-                    _task_validate_captcha(elective)
+                    # _task_validate_captcha(elective)
 
                     retryRequired = True
                     while retryRequired:
@@ -559,7 +573,7 @@ def main(signals, userInfo, goals=None, ignored=None, status=None):
                 _task_increase_error_count(status, e)
 
             except _ElectiveNeedsLogin as e:
-                cout.info("client: %s needs Login" % elective.id)
+                cout.warning("client: %s needs Login" % elective.id)
                 reloginPool.put_nowait(elective)
                 elective = None
                 shouldEnterNextLoopImmediately = True

@@ -5,6 +5,7 @@
 
 __all__ = ["ElectiveClient"]
 
+import time
 import random
 from .client import BaseClient
 from .hook import *
@@ -63,6 +64,12 @@ class ElectiveClient(BaseClient):
     def hasLogined(self):
         return len(self._session.cookies) > 0
 
+    @property
+    def captchaNeedsRefresh(self):
+        return time.time() > self._captcha_expire_time
+
+    def setCaptchaTime(self, interval):
+        self._captcha_expire_time = time.time() + interval
 
     def sso_login(self, token, **kwargs):
         r = self._get(
@@ -73,7 +80,7 @@ class ElectiveClient(BaseClient):
             },
             # 必须要随便指定一个 Cookie 否则无法会报 101 status_code
             headers={
-                "Cookie": "JSESSIONID=TH9sd1HBgw0k3RTFxMHKmWpPp4bMJ5FnTGn7WmvyH2JmTqNGgxpS!1984960435",
+                "Cookie": "JSESSIONID=RZ1Qd4rTThr3Y5yN2QL8PTRgnLVQhFz2NpJ17tyvNWnCGfGkpS7R!2042005199",
             },
             hooks=_hooks_check_title,
             **kwargs,
