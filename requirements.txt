@@ -1,4 +1,4 @@
-lxml==4.3.0
+lxml==4.6.5
 requests==2.22.0
 simplejson==3.15.0
 Pillow==5.4.1
